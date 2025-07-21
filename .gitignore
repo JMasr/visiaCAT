@@ -1,6 +1,11 @@
+# R specific files and directories to ignore
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+# Documentation and data directories
 docs
 inst/doc
+# Data and resources directories
+data
+output
