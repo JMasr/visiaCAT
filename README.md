@@ -7,9 +7,13 @@
 
 `visiaCat` is a comprehensive R project that demonstrates a full, end-to-end workflow for developing and evaluating a Computerized Adaptive Test (CAT) based on Item Response Theory (IRT). The project uses a real-world clinical dataset, applying a fixed-anchor co-calibration method to place items from multiple psychometric scales onto a common metric.
 
+![CAT Simulation Workflow](static/CAT_INFO.png)
+
 The primary goal is to simulate various CAT configurations to identify an optimal testing strategy that balances **precision** (low measurement error), **efficiency** (minimal test length), and **fairness** (no item bias across clinical groups).
 
 This project is structured as a professional R package to showcase best practices in software development, including modular code, dependency management, automated documentation, and a reproducible analysis pipeline.
+
+
 
 ---
 
