@@ -7,6 +7,71 @@
 #
 ################################################################################
 
+#' (Internal) Recode Character Item Responses to a Numeric Scale
+#'
+#' @description
+#' This helper function iterates through specified item columns of a dataframe.
+#' If a column is of character type, it attempts to automatically convert it to
+#' a numeric scale based on a set of predefined rules.
+#'
+#' @param master_data The dataframe containing the item response data.
+#' @param all_item_cols A character vector of column names to process.
+#'
+#' @return The dataframe with character item columns recoded to numeric.
+#'
+#' @importFrom dplyr %>% mutate across case_when
+#' @importFrom stringr str_to_lower str_starts str_extract
+#'
+#' @noRd
+recode_responses_to_numeric <- function(master_data, all_item_cols) {
+
+  message("\n--- Checking and Recoding Item Response Data ---")
+
+  # Define the Coding logic as a single function to be applied to each column
+  recode_column <- function(col_vector) {
+    # 1. If column is already numeric, do nothing.
+    if (is.numeric(col_vector)) {
+      return(col_vector)
+    }
+
+    # 2. If column is not numeric, it's likely character. Get unique values.
+    unique_vals <- unique(stats::na.omit(col_vector))
+    unique_vals_lower <- stringr::str_to_lower(unique_vals)
+
+    # --- Rule A: Binary Coding (Yes/No) ---
+    if (all(unique_vals_lower %in% c("yes", "si", "sí", "no"))) {
+      message(sprintf("  - Recoding binary column (Yes/No)..."))
+      return(dplyr::case_when(
+        stringr::str_to_lower(col_vector) %in% c("yes", "si", "sí") ~ 1,
+        stringr::str_to_lower(col_vector) == "no" ~ 0,
+        TRUE ~ NA_real_
+      ))
+    }
+
+    # --- Rule B: Numeric Prefix Coding ---
+    if (all(stringr::str_starts(unique_vals, "\\d"))) {
+      message(sprintf("  - Recoding column from numeric prefix..."))
+      return(as.numeric(stringr::str_extract(col_vector, "^\\d+")))
+    }
+
+    # --- Rule C: Fallback Ordinal Factor Recoding ---
+    # This handles cases like "Never", "Sometimes", "Always"
+    message(sprintf("  - Recoding ordinal column using factor conversion..."))
+    # The factor levels are created in order of appearance.
+    # We subtract 1 to ensure the scale starts at 0 (crucial for IRT models).
+    return(as.numeric(as.factor(col_vector)) - 1)
+  }
+
+  # Apply the coding function across all specified item columns
+  master_data_recoded <- master_data %>%
+    dplyr::mutate(dplyr::across(dplyr::all_of(all_item_cols), recode_column))
+
+  message("--- Item Recoding Complete ---")
+  return(master_data_recoded)
+}
+
+
+
 #' Load and Merge Anchor and Item Bank Data
 #'
 #' @description
@@ -94,6 +159,10 @@ load_and_merge_data <- function(path_anchor, path_item_bank, id_col_name, group_
     stop("Validation Error: The specified group column '", group_col_name, "' was not found in the anchor data file.")
   }
 
+  # Identify and recode anchor item columns
+  final_anchor_names <- dplyr::setdiff(names(anchor_data), c(id_col_name, group_col_name))
+  anchor_data <- recode_responses_to_numeric(anchor_data, final_anchor_names)
+
   # --- Load Item Bank Data ---
   if (length(item_bank_files) > 0) {
     item_bank_data <- item_bank_files %>%
@@ -109,12 +178,16 @@ load_and_merge_data <- function(path_anchor, path_item_bank, id_col_name, group_
   }
 
   message("--- Data Merging Complete ---")
-  message(sprintf("Total subjects: %d", nrow(master_data)))
-  message(sprintf("Total columns (items + IDs): %d", ncol(master_data)))
-
   # Prepare final lists of item names, excluding metadata columns
   final_anchor_names <- dplyr::setdiff(names(anchor_data), c(id_col_name, group_col_name))
   final_bank_names <- dplyr::setdiff(names(item_bank_data), id_col_name)
+  all_item_cols <- c(final_anchor_names, final_bank_names)
+
+  # Coding Master Data
+  master_data <- recode_responses_to_numeric(master_data, all_item_cols)
+
+  message(sprintf("Total subjects: %d", nrow(master_data)))
+  message(sprintf("Total columns (items + IDs): %d", ncol(master_data)))
 
   return(list(
     master_data = master_data,
