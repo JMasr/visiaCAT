@@ -10,5 +10,5 @@ docs
 inst/doc
 # Data and resources directories
 data
-output
+output*
 .qodo
