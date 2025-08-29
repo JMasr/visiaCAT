@@ -42,8 +42,8 @@ dir.create(RESULTS_DIR, showWarnings = FALSE)
 
 # Column names
 ID_COL_NAME <- "crd"
-GROUP_COL_NAME <- "grupo_clinico"
-DIF_GROUPING_VARIABLE <- "grupo_clinico"
+GROUP_COL_NAME <- "clinical_group"
+DIF_GROUPING_VARIABLE <- "clinical_group"
 
 # Item parameters
 # ACTION REQUIRED: Define the names of any reverse-scored items here.
