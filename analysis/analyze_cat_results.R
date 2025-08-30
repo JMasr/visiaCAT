@@ -22,8 +22,9 @@ devtools::load_all() # Load visiaCat package functions
 # --- 2. CONFIGURATION: CHOOSE THE SCENARIO TO ANALYZE ---
 # ------------------------------------------------------------------------------
 # ACTION REQUIRED: Set these variables to match the .rds file you want to analyze.
+GROUP_COL_NAME <- "clinical_group"
 TARGET_ITEM_SELECT_RULE <- "MFI"
-TARGET_STOP_CONDITION <- "Standard Precision" # Must match exactly: "High Precision", "Standard Precision", or "Short Test"
+TARGET_STOP_CONDITION <- "High Precision" # Must match exactly: "High Precision", "Standard Precision", or "Short Test"
 TOP_N_ITEMS <- 100 # How many top items to show in the report
 
 # --- 3. LOAD REQUIRED DATA ---
@@ -69,7 +70,7 @@ exposure_rates <- calculate_exposure_rates(
   sim_result = target_sim_result,
   patient_data = patient_data,
   item_bank = item_bank,
-  group_col_name = "grupo_clinico" # Or your defined GROUP_COL_NAME
+  group_col_name = GROUP_COL_NAME
 )
 
 # --- 5. GENERATE AND DISPLAY THE TOP N REPORT ---
@@ -98,3 +99,27 @@ report_filename <- file.path(
 )
 write_csv(top_n_report, report_filename)
 message(sprintf("\nTop N report saved to: %s\n", report_filename))
+
+# --- 6. SAVE FINAL THETA ESTIMATES ---
+# ------------------------------------------------------------------------------
+message("\n--- Saving final theta estimates for the selected scenario ---")
+
+# Create a data frame with the patient identifier, group, and final theta score
+final_thetas_df <- tibble(
+  !!ID_COL_NAME := patient_data[[ID_COL_NAME]],
+  !!GROUP_COL_NAME := patient_data[[GROUP_COL_NAME]],
+  "true_theta" = target_sim_result$thetas,
+  estimated_theta = target_sim_result$estimatedThetas
+)
+
+# Construct the output filename
+theta_filename <- file.path(
+  RESULTS_DIR,
+  sprintf("final_thetas_%s_%s.csv",
+          TARGET_ITEM_SELECT_RULE,
+          gsub(" ", "_", TARGET_STOP_CONDITION))
+)
+
+# Save the data frame to a CSV file
+write_csv(final_thetas_df, theta_filename)
+message(sprintf("Final theta estimates saved to: %s\n", theta_filename))
