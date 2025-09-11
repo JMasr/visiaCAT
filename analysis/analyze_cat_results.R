@@ -22,6 +22,7 @@ devtools::load_all() # Load visiaCat package functions
 # --- 2. CONFIGURATION: CHOOSE THE SCENARIO TO ANALYZE ---
 # ------------------------------------------------------------------------------
 # ACTION REQUIRED: Set these variables to match the .rds file you want to analyze.
+ID_COL_NAME <- "crd"
 GROUP_COL_NAME <- "clinical_group"
 TARGET_ITEM_SELECT_RULE <- "MFI"
 TARGET_STOP_CONDITION <- "High Precision" # Must match exactly: "High Precision", "Standard Precision", or "Short Test"
@@ -123,3 +124,61 @@ theta_filename <- file.path(
 # Save the data frame to a CSV file
 write_csv(final_thetas_df, theta_filename)
 message(sprintf("Final theta estimates saved to: %s\n", theta_filename))
+
+# --- 7. SAVE DETAILED RESPONSE LOGS ---
+# ------------------------------------------------------------------------------
+message("\n--- Saving detailed response logs for each patient ---")
+
+# Create a map from item index to item name for easy joining
+item_map <- item_bank %>%
+  select(item_name = item) %>%
+  mutate(item_index = row_number())
+
+# Isolate the response data and add a person identifier
+response_data <- target_sim_result$responses.df %>%
+  mutate(person_id = row_number())
+
+# Pivot the item and response columns from wide to long format
+response_log_long <- response_data %>%
+  pivot_longer(
+    cols = -person_id,
+    names_to = c(".value", "step"),
+    names_pattern = "(.+)\\.(\\d+)",
+    values_drop_na = TRUE
+  ) %>%
+  rename(item_index = items.administrated, response = responses) %>%
+  mutate(step = as.integer(step))
+
+# Prepare patient identifiers and final thetas
+patient_info <- patient_data %>%
+  mutate(
+    person_id = row_number(),
+    estimated_theta = target_sim_result$estimatedThetas
+  ) %>%
+  select(person_id, !!ID_COL_NAME, !!GROUP_COL_NAME, estimated_theta)
+
+# Join everything together into a final, comprehensive log
+detailed_report <- response_log_long %>%
+  left_join(item_map, by = "item_index") %>%
+  left_join(patient_info, by = "person_id") %>%
+  select(
+    !!ID_COL_NAME,
+    !!GROUP_COL_NAME,
+    estimated_theta,
+    step,
+    item_name,
+    response
+  ) %>%
+  arrange(!!sym(ID_COL_NAME), step)
+
+# Construct the output filename
+detailed_log_filename <- file.path(
+  RESULTS_DIR,
+  sprintf("detailed_response_log_%s_%s.csv",
+          TARGET_ITEM_SELECT_RULE,
+          gsub(" ", "_", TARGET_STOP_CONDITION))
+)
+
+# Save the detailed log to a CSV file
+write_csv(detailed_report, detailed_log_filename)
+message(sprintf("Detailed response log saved to: %s\n", detailed_log_filename))
